@@ -1,0 +1,179 @@
+# TestApp — Cursor Rules
+
+## Project Overview
+TestApp is a task management app for small engineering teams (3–10 people at startups) built with Next.js, TypeScript, Tailwind CSS, Postgres, and Prisma. The goal is to eliminate unnecessary status meetings by giving teams shared visibility into who is doing what.
+
+## Tech Stack
+- **Framework**: Next.js 14+ (App Router)
+- **Language**: TypeScript (strict mode)
+- **Styling**: Tailwind CSS
+- **Database**: PostgreSQL via Prisma ORM
+- **Runtime**: Node.js
+
+---
+
+## Code Style & Conventions
+
+### TypeScript
+- Always use strict TypeScript. No `any` types — use `unknown` and narrow properly.
+- Define explicit return types on all functions and API route handlers.
+- Use `interface` for object shapes that describe entities (Task, User, Team). Use `type` for unions, intersections, and utility types.
+- Export types and interfaces from a central `types/` directory when shared across files.
+- Use `zod` for runtime validation of API inputs and form data.
+
+### Next.js (App Router)
+- Use the App Router (`app/` directory) exclusively. Do not mix with Pages Router.
+- Use Server Components by default. Only add `"use client"` when the component requires browser APIs, event handlers, or React hooks.
+- Keep data fetching in Server Components or Server Actions — avoid fetching in Client Components unless absolutely necessary.
+- Name route files as `page.tsx`, layout files as `layout.tsx`, and loading states as `loading.tsx`.
+- Group related routes using route groups: `(auth)`, `(dashboard)`, `(tasks)`.
+- API routes live in `app/api/` using the Route Handler pattern (`route.ts`).
+
+### Prisma & Database
+- All database access goes through the Prisma client singleton in `lib/prisma.ts`.
+- Never instantiate `PrismaClient` outside of `lib/prisma.ts`.
+- Migrations live in `prisma/migrations/`. Always run `npx prisma migrate dev` during development.
+- Seed data lives in `prisma/seed.ts`.
+- Use Prisma's `select` to avoid over-fetching — never return full model objects to the client if only a subset of fields is needed.
+- Write raw SQL only as a last resort; prefer Prisma's query API.
+
+### Tailwind CSS
+- Use Tailwind utility classes directly in JSX. Do not write custom CSS files unless absolutely unavoidable.
+- Use `cn()` (from `clsx` + `tailwind-merge`) for conditional class merging. Import from `lib/utils.ts`.
+- Follow a mobile-first responsive design approach: `sm:`, `md:`, `lg:` breakpoints.
+- Avoid arbitrary values (`w-[347px]`) unless there is no Tailwind token that fits.
+- Keep component-specific styles co-located with the component. Do not use global CSS except for base resets in `app/globals.css`.
+
+### Component Structure
+- Components live in `components/`. Subdirectories by domain: `components/tasks/`, `components/dashboard/`, `components/ui/`.
+- `components/ui/` holds primitive, reusable UI elements (Button, Badge, Card, Modal).
+- Domain components (TaskCard, AssigneeSelect, StatusBadge) live in their domain folder.
+- Props interfaces are defined in the same file as the component, directly above the component function.
+- Keep components small and focused. If a component exceeds ~150 lines, consider splitting it.
+
+### State Management
+- Prefer server-side state (Server Components + Server Actions) over client-side state stores.
+- For local UI state, use `useState` and `useReducer`.
+- Do not introduce Redux, Zustand, or similar libraries unless the project clearly outgrows built-in React state — it won't for MVP.
+- Use React Context sparingly, only for genuinely global UI state (e.g., current user session, theme).
+
+### Forms & Mutations
+- Use Next.js Server Actions for form submissions and data mutations wherever possible.
+- Validate all inputs server-side with `zod` before touching the database.
+- Show optimistic UI or loading states on form submission to keep the UX responsive.
+- Handle and surface errors explicitly — never silently swallow errors.
+
+### API Routes (Route Handlers)
+- Always validate request bodies with `zod` before processing.
+- Return consistent JSON shapes:
+  ```ts
+  // Success
+  { data: T }
+  // Error
+  { error: string, details?: unknown }
+  ```
+- Use proper HTTP status codes: 200, 201, 400, 401, 403, 404, 500.
+- Authenticate requests by checking the session on every protected route.
+
+---
+
+## Folder Structure
+```
+testapp/
+├── app/
+│   ├── (auth)/
+│   │   ├── login/
+│   │   │   └── page.tsx
+│   │   └── layout.tsx
+│   ├── (dashboard)/
+│   │   ├── dashboard/
+│   │   │   └── page.tsx
+│   │   └── layout.tsx
+│   ├── (tasks)/
+│   │   ├── tasks/
+│   │   │   ├── page.tsx          # Task list
+│   │   │   ├── new/page.tsx      # Create task
+│   │   │   └── [id]/page.tsx     # Task detail
+│   │   └── layout.tsx
+│   ├── api/
+│   │   ├── tasks/
+│   │   │   └── route.ts
+│   │   └── users/
+│   │       └── route.ts
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx
+├── components/
+│   ├── ui/
+│   │   ├── Button.tsx
+│   │   ├── Badge.tsx
+│   │   ├── Card.tsx
+│   │   └── Modal.tsx
+│   ├── tasks/
+│   │   ├── TaskCard.tsx
+│   │   ├── TaskForm.tsx
+│   │   ├── AssigneeSelect.tsx
+│   │   └── StatusBadge.tsx
+│   └── dashboard/
+│       ├── DashboardSummary.tsx
+│       └── TeamActivityFeed.tsx
+├── lib/
+│   ├── prisma.ts                 # Prisma client singleton
+│   ├── utils.ts                  # cn() and misc helpers
+│   └── validations/
+│       ├── task.ts               # Zod schemas for tasks
+│       └── user.ts
+├── types/
+│   ├── task.ts
+│   └── user.ts
+├── prisma/
+│   ├── schema.prisma
+│   ├── seed.ts
+│   └── migrations/
+├── public/
+├── .env.local
+├── .env.example
+├── next.config.ts
+├── tailwind.config.ts
+├── tsconfig.json
+└── package.json
+```
+
+---
+
+## Naming Conventions
+- **Files**: `PascalCase` for components (`TaskCard.tsx`), `camelCase` for utilities and lib files (`prisma.ts`, `utils.ts`).
+- **Directories**: `kebab-case` for route directories (`task-detail/`), `camelCase` for lib/utility dirs.
+- **Variables & Functions**: `camelCase`.
+- **Types & Interfaces**: `PascalCase`. Prefix interfaces with nothing (no `I` prefix).
+- **Constants**: `UPPER_SNAKE_CASE` for true constants (e.g., `MAX_TEAM_SIZE = 10`).
+- **Database models**: `PascalCase` singular in Prisma schema (`Task`, `User`, `Team`).
+- **API endpoints**: RESTful, kebab-case (`/api/tasks`, `/api/team-members`).
+
+---
+
+## TestApp Domain Rules
+- **Task statuses** are always one of: `TODO`, `IN_PROGRESS`, `IN_REVIEW`, `DONE`. Use a TypeScript union or Prisma enum — never a raw string.
+- **Task assignment** is always to a team member. Do not allow assigning tasks to users outside the team.
+- **Dashboard** shows only tasks relevant to the current user's team. Never show cross-team data.
+- **Team size** is capped at 10 members for MVP. Enforce this at the service layer.
+- Keep the UI dead simple — this is a productivity tool, not a portfolio piece. Prioritize clarity and speed over visual flair.
+
+---
+
+## Performance & Quality
+- Run `npx tsc --noEmit` before every commit. Zero TypeScript errors allowed.
+- Run `npx prisma validate` after any schema changes.
+- Keep Lighthouse performance score above 85 for dashboard and task list pages.
+- Do not add npm packages without a clear reason — we have a 2-week deadline and zero budget. Prefer built-in solutions.
+- Write self-documenting code. Add comments only when the *why* is not obvious from reading the code.
+
+---
+
+## What NOT to Do
+- Do not use `any` type.
+- Do not fetch data in Client Components when a Server Component can do it.
+- Do not create new global CSS classes — use Tailwind.
+- Do not introduce a state management library for MVP.
+- Do not add paid third-party services — no budget.
+- Do not over-engineer. TestApp needs to ship in 2 weeks. Choose the simplest solution that works.
